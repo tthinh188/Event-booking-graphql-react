@@ -1,0 +1,30 @@
+{
+  "name": "event-booking-graphql-react",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon index.js",
+    "start": "node index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tthinh188/Event-booking-graphql-react.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/tthinh188/Event-booking-graphql-react/issues"
+  },
+  "homepage": "https://github.com/tthinh188/Event-booking-graphql-react#readme",
+  "dependencies": {
+    "body-parser": "^1.19.0",
+    "dotenv": "^10.0.0",
+    "express": "^4.17.1",
+    "express-graphql": "^0.12.0",
+    "graphql": "^15.6.0",
+    "mongoose": "^6.0.9",
+    "nodemon": "^2.0.13",
+    "uuid": "^8.3.2"
+  }
+}
