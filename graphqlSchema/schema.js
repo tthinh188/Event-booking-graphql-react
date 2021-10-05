@@ -9,6 +9,10 @@ const {
 } = require('graphql');
 const uuid = require('uuid').v4;
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+
+const dotenv = require('dotenv');
+dotenv.config();
 
 const Event = require('../models/event.js')
 const User = require('../models/user.js')
@@ -70,12 +74,12 @@ const UserType = new GraphQLObjectType({
     })
 });
 
-const ResponseType = new GraphQLObjectType({
+const AuthType = new GraphQLObjectType({
     name: 'Response',
     description: "This represents a response to client",
     fields: () => ({
         status: { type: GraphQLNonNull(GraphQLInt) },
-        // data: GraphQLObjectType,
+        token: { type: GraphQLNonNull(GraphQLString) },
         message: { type: GraphQLNonNull(GraphQLString) },
     })
 })
@@ -146,7 +150,7 @@ const RootMutationType = new GraphQLObjectType({
             }
         },
         signUp: {
-            type: ResponseType,
+            type: AuthType,
             description: 'Register a user',
             args: {
                 name: { type: GraphQLNonNull(GraphQLString) },
@@ -176,7 +180,7 @@ const RootMutationType = new GraphQLObjectType({
         },
 
         signIn: {
-            type: ResponseType,
+            type: AuthType,
             description: 'user login',
             args: {
                 userName: { type: GraphQLNonNull(GraphQLString) },
@@ -194,12 +198,9 @@ const RootMutationType = new GraphQLObjectType({
                     if (!isPasswordCorrect)
                         throw new Error("Invalid credential");
 
-                    const result = await User.create({
-                        name: args.name,
-                        userName: args.userName,
-                        password: hashedPassword
-                    })
-                    return result
+                    const token = jwt.sign({ id: existingUser._id, name: existingUser.name }, process.env.SECRET_KEY, { expiresIn: "1h" });
+
+                    return { status: 200, token: token }
 
                 } catch (err) {
                     console.log(err)
