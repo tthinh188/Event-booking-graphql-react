@@ -7,7 +7,6 @@ const {
     GraphQLInt,
     GraphQLNonNull,
 } = require('graphql');
-const uuid = require('uuid').v4;
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
@@ -16,27 +15,6 @@ dotenv.config();
 
 const Event = require('../models/event.js')
 const User = require('../models/user.js')
-
-const userId1 = uuid();
-const userId2 = uuid();
-const userId3 = uuid();
-
-
-const events = [
-    { id: uuid(), title: "Concert", price: 99.99, date: new Date().toDateString(), userId: userId1 },
-    { id: uuid(), title: "Sailing", price: 49.99, date: new Date().toDateString(), userId: userId2 },
-    { id: uuid(), title: "Coding", price: 9.99, date: new Date().toDateString(), userId: userId3 },
-    { id: uuid(), title: "Dinner", price: 150.49, date: new Date().toDateString(), userId: userId3 },
-    { id: uuid(), title: "Movie night", price: 29.99, date: new Date().toDateString(), userId: userId2 },
-    { id: uuid(), title: "Picnic", price: 79.99, date: new Date().toDateString(), userId: userId1 },
-]
-
-const users = [
-    { id: userId1, name: "Tim" },
-    { id: userId2, name: "John" },
-    { id: userId3, name: "Alex" },
-]
-
 
 const EventType = new GraphQLObjectType({
     name: 'Event',
@@ -49,9 +27,8 @@ const EventType = new GraphQLObjectType({
         userId: { type: GraphQLNonNull(GraphQLString) },
         user: {
             type: UserType,
-            resolve: (event) => {
-                return users.find(user => user.id === event.userId)
-            }
+            resolve: async (event) =>
+                (await User.find({ _id: event.userId }))[0]
         }
     })
 })
@@ -67,9 +44,8 @@ const UserType = new GraphQLObjectType({
         events: {
             type: EventType,
             description: 'Events book by user',
-            resolve: (user) => {
-                return events.find(event => event.userId === user.id)
-            }
+            resolve: async (user) =>
+                (await Event.find({ userId: user._id }))[0]
         }
     })
 });
@@ -91,10 +67,7 @@ const RootQueryType = new GraphQLObjectType({
         events: {
             type: new GraphQLList(EventType),
             description: 'List of events',
-            resolve: () => {
-                console.log('go')
-                return events
-            },
+            resolve: async () => await Event.find()
         },
         event: {
             type: EventType,
@@ -102,18 +75,45 @@ const RootQueryType = new GraphQLObjectType({
             args: {
                 id: { type: GraphQLString }
             },
-            resolve: (parent, args) => events.find(event => event.id === args.id)
+            resolve: async (parent, args) => (await Event.find({ _id: args.id }))[0]
         },
+
         eventsByUser: {
             type: new GraphQLList(EventType),
             description: 'Get event by user id',
             args: {
                 userId: { type: GraphQLString }
             },
-            resolve: async (parent, args) => {
-                const events = await Event.find({ userId: args.userId })
-                return events
+            resolve: async (parent, args) => await Event.find({ userId: args.userId })
+        },
+        
+        signIn: {
+            type: AuthType,
+            description: 'user login',
+            args: {
+                userName: { type: GraphQLNonNull(GraphQLString) },
+                password: { type: GraphQLNonNull(GraphQLString) },
             },
+            resolve: async (parent, args) => {
+                try {
+                    const existingUser = await User.findOne({ userName: args.userName });
+
+                    if (!existingUser)
+                        throw new Error("User not found.");
+
+                    const isPasswordCorrect = await bcrypt.compare(args.password, existingUser.password);
+
+                    if (!isPasswordCorrect)
+                        throw new Error("Invalid credential");
+
+                    const token = jwt.sign({ id: existingUser._id, name: existingUser.name }, process.env.SECRET_KEY, { expiresIn: "1h" });
+
+                    return { status: 200, token: token }
+
+                } catch (err) {
+                    console.log(err)
+                }
+            }
         },
         users: {
             type: new GraphQLList(UserType),
@@ -139,7 +139,7 @@ const RootMutationType = new GraphQLObjectType({
                 // userId: { type: GraphQLNonNull(GraphQLString) },
             },
             resolve: (parent, args, req) => {
-                if(!req.isAuth) {
+                if (!req.isAuth) {
                     throw new Error("Unauthenticated")
                 }
                 const event = new Event({
@@ -182,35 +182,6 @@ const RootMutationType = new GraphQLObjectType({
                 }
             }
         },
-
-        signIn: {
-            type: AuthType,
-            description: 'user login',
-            args: {
-                userName: { type: GraphQLNonNull(GraphQLString) },
-                password: { type: GraphQLNonNull(GraphQLString) },
-            },
-            resolve: async (parent, args) => {
-                try {
-                    const existingUser = await User.findOne({ userName: args.userName });
-
-                    if (!existingUser)
-                        throw new Error("User not found.");
-
-                    const isPasswordCorrect = await bcrypt.compare(args.password, existingUser.password);
-
-                    if (!isPasswordCorrect)
-                        throw new Error("Invalid credential");
-
-                    const token = jwt.sign({ id: existingUser._id, name: existingUser.name }, process.env.SECRET_KEY, { expiresIn: "1h" });
-
-                    return { status: 200, token: token }
-
-                } catch (err) {
-                    console.log(err)
-                }
-            }
-        }
     })
 })
 
