@@ -4,10 +4,13 @@ const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 
 const schema = require('./graphqlSchema/schema.js');
+const isAuth = require('./middleware/auth');
 
 dotenv.config();
 
 const app = express();
+
+app.use(isAuth);
 
 app.use('/graphql', expressGraphQL({
     schema: schema,
@@ -18,7 +21,7 @@ mongoose.connect(
     `mongodb+srv://${process.env.USER_NAME}:${process.env.PASSWORD}@cluster0.thgp8.mongodb.net/${process.env.DATABASE_NAME}?retryWrites=true&w=majority`
 ).then(() => {
     app.listen(5000, () => {
-        console.log("server running on port 3000")
+        console.log("server running on port 5000")
     });
 }).catch(err => {
     console.log(err)
