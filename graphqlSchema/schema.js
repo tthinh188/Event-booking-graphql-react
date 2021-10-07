@@ -42,7 +42,7 @@ const EventType = new GraphQLObjectType({
     name: 'Event',
     description: 'This represents an event',
     fields: () => ({
-        id: { type: GraphQLNonNull(GraphQLString) },
+        _id: { type: GraphQLNonNull(GraphQLString) },
         title: { type: GraphQLNonNull(GraphQLString) },
         price: { type: GraphQLNonNull(GraphQLFloat) },
         date: { type: GraphQLNonNull(GraphQLString) },
@@ -60,10 +60,10 @@ const UserType = new GraphQLObjectType({
     name: 'User',
     description: 'This represents a user',
     fields: () => ({
-        id: { type: GraphQLNonNull(GraphQLString) },
+        _id: { type: GraphQLNonNull(GraphQLString) },
         name: { type: GraphQLNonNull(GraphQLString) },
         userName: { type: GraphQLNonNull(GraphQLString) },
-        password: { type: GraphQLNonNull(GraphQLString) },
+        // password: { type: GraphQLNonNull(GraphQLString) },
         events: {
             type: EventType,
             description: 'Events book by user',
@@ -110,12 +110,18 @@ const RootQueryType = new GraphQLObjectType({
             args: {
                 userId: { type: GraphQLString }
             },
-            resolve: (parent, args) => events.filter(event => event.userId === args.userId)
+            resolve: async (parent, args) => {
+                const events = await Event.find({ userId: args.userId })
+                return events
+            },
         },
         users: {
             type: new GraphQLList(UserType),
             description: 'List of users',
-            resolve: () => users,
+            resolve: async () => {
+                const res = await User.find();
+                return res;
+            }
         },
     })
 })
@@ -130,21 +136,19 @@ const RootMutationType = new GraphQLObjectType({
             args: {
                 title: { type: GraphQLNonNull(GraphQLString) },
                 price: { type: GraphQLNonNull(GraphQLFloat) },
-                userId: { type: GraphQLNonNull(GraphQLString) },
+                // userId: { type: GraphQLNonNull(GraphQLString) },
             },
-            resolve: (parent, args) => {
-                // const event = {
-                //     id: uuid(),
-                //     title: args.title,
-                //     date: new Date(),
-                //     userId: args.userId,
-                // }
+            resolve: (parent, args, req) => {
+                if(!req.isAuth) {
+                    throw new Error("Unauthenticated")
+                }
                 const event = new Event({
                     title: args.title,
                     date: new Date(),
-                    userId: args.userId,
+                    price: args.price,
+                    userId: req.user.id,
                 });
-                // events.push(event);
+
                 event.save();
                 return event;
             }
